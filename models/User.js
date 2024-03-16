@@ -1,6 +1,10 @@
 const mongoose = require("mongoose");
 
-const userSchema = new mongoose.Schema(
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+// require("dotenv").config();
+
+const UserSchema = new mongoose.Schema(
   {
     name: {
       type: String,
@@ -24,4 +28,36 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model("User", userSchema);
+UserSchema.pre("save", async function () {
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+  } catch (error) {
+    console.error(error.message);
+  }
+});
+
+UserSchema.methods.createJWT = function () {
+  try {
+    return jwt.sign(
+      { userId: this._id, name: this.name },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "30d",
+      }
+    );
+  } catch (error) {
+    console.error(error.message);
+  }
+};
+
+UserSchema.methods.comparePassword = async function (password) {
+  try {
+    const isMacth = await bcrypt.compare(password, this.password);
+    return isMacth;
+  } catch (error) {
+    console.log(error.message);
+  }
+};
+
+module.exports = mongoose.model("User", UserSchema);
